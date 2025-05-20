@@ -1,6 +1,5 @@
 from mpqp.measures import pauli_string, Observable
 from mpqp.core.languages import Language
-from mpqp.measures import I, X, Y, Z
 import numpy as np
 from mpqp import QCircuit
 from mpqp.gates import *
@@ -8,14 +7,13 @@ from mpqp.measures import BasisMeasure
 from mpqp.noise import Depolarizing
 from mpqp.execution import run
 from mpqp.execution.devices import AWSDevice
+from mpqp.measures import X as Pauli_X,  Y as Pauli_Y, Z as Pauli_Z
 # %% Ex1
-p = I @ Z - 3 * Z @ Z + 2* Z @ I
-# %%
-p1 = 2 *X @X - Y @ Y + Z @ X
-p2 = 2 * p1 +Y @ X - 4 * X @ X
+p1 = 2 *Pauli_X @Pauli_X - Pauli_Y @ Pauli_Y + Pauli_Z @ Pauli_X
+p2 = 2 * p1 +Pauli_Y @ Pauli_X - 4 * Pauli_X @ Pauli_X
 print((p2).to_matrix())
 mat = [[4, 2, 3, 8], [2, -3, 1, 0], [3, 1, -1, 5], [8, 0, 5, 2]]
-obs =Observable(np.array(obs))
+obs =Observable(np.array(mat))
 print(obs.pauli_string)
 
 # EX2
