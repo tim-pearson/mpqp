@@ -1,9 +1,7 @@
-# Ignore everything
 *
 
-# But not these (negate the ignore rule)
-!*.py
+!*/
 
-# Optional: keep .gitignore itself
-!.gitignore
+!*.md
+!*.py
 
