@@ -20,8 +20,12 @@ print(obs.pauli_string)
 
 # EX2
 # %% q1
-circuit = QCircuit([H(0), CNOT(0,1), BasisMeasure([0, 1], shots=1000)])
-circuit.add(Depolarizing(0.05, [0, 1]))
+circ = QCircuit(6)
+targets = range(3)
+ancillas = range(3,6)
+for i in range(3):
+    circ.add(CNOT(targets[i], ancillas[i]))
+print(circ)
 # %% q2
 device = AWSDevice.BRAKET_LOCAL_SIMULATOR
 result_global = run(circuit, device)
@@ -41,3 +45,17 @@ print(result)
 braket_circuit = circuit.to_other_language(language=Language.BRAKET)
 print("\nBraket circuit representation:")
 print(braket_circuit)
+
+# EX3
+# %%
+circ = QCircuit(6)
+targets = range(3)
+ancillas = range(3,6)
+for i in range(3):
+    circ.add(CNOT(targets[i], ancillas[i]))
+print(circ)
+qasm2 = circuit.to_other_language(Language.QASM2)
+print(qasm2)
+# %%
+qasm3 = circuit.to_other_language(Language.QASM3)
+print(qasm3)
