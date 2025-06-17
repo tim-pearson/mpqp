@@ -5,7 +5,19 @@ from project import (
 
 
 class TestSuperdenseProtocol(unittest.TestCase):
-    def test_sent_equals_received_noiseless(self):
+    test_cases = [
+        "00",
+        "01",
+        "10",
+        "11",
+        "0000",
+        "1101",
+        "1010",
+        "1111",
+        "0011",
+    ]
+
+    def test_no_noise(self):
         test_cases = [
             "00",
             "01",
@@ -16,6 +28,8 @@ class TestSuperdenseProtocol(unittest.TestCase):
             "1010",
             "1111",
             "0011",
+            "001111",
+            "00100111",
         ]
         for bits in test_cases:
             with self.subTest(bits=bits):
@@ -27,7 +41,7 @@ class TestSuperdenseProtocol(unittest.TestCase):
                     msg=f"Sent bits {bits} != received {result['bitstring']}",
                 )
 
-    def test_sent_approx_equals_received_noisy(self):
+    def test_noisey(self):
         test_cases = [
             "00",
             "01",
@@ -42,7 +56,7 @@ class TestSuperdenseProtocol(unittest.TestCase):
         threshold = 0.2  # minimum probability expected for the correct bitstring under noise
         for bits in test_cases:
             with self.subTest(bits=bits):
-                protocol = SuperdenseProtocol(bits, noise=True)
+                protocol = SuperdenseProtocol(bits, noise=0.1)
                 result = protocol.run_and_get_results()
                 self.assertEqual(
                     result["bitstring"],

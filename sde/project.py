@@ -65,7 +65,7 @@ class BobDecodeCircuit(QCircuit):
 
 
 class SuperdenseProtocol:
-    def __init__(self, bits: str, noise=False):
+    def __init__(self, bits: str, noise=None):
         if len(bits) % 2 != 0:
             raise ValueError(
                 "Number of bits must be even for superdense coding"
@@ -92,9 +92,8 @@ class SuperdenseProtocol:
 
         # Add noise if requested on *all* qubits after Alice encoding
         if self.noise:
-            p = 0.1
             qubits = list(range(2 * self.n_pairs))
-            self.circuit.add(Depolarizing(p, qubits))
+            self.circuit.add(Depolarizing(noise, qubits))
 
         # Bob decoding
         for gate in self.bob.gates:
@@ -121,27 +120,3 @@ class SuperdenseProtocol:
             "raw_result": result,
         }
 
-
-def main():
-    bits = "1101"  # Example 4 bits (2 pairs), you can change to any even length string
-
-    print("Running noiseless simulation...")
-    protocol = SuperdenseProtocol(bits, noise=False)
-    result = protocol.run_and_get_results()
-    print(f"Alice sent bits: {bits}")
-    print(
-        f"Noiseless output: {result['bitstring']} with probability {result['probability']:.3f}"
-    )
-    print(f"Counts: {result['counts']}\n")
-
-    print("Running noisy simulation with Depolarizing noise...")
-    protocol_noisy = SuperdenseProtocol(bits, noise=True)
-    result_noisy = protocol_noisy.run_and_get_results()
-    print(
-        f"Noisy output: {result_noisy['bitstring']} with probability {result_noisy['probability']:.3f}"
-    )
-    print(f"Counts: {result_noisy['counts']}")
-
-
-if __name__ == "__main__":
-    main()
