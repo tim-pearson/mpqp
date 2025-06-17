@@ -6,56 +6,113 @@ from mpqp.execution import run
 from mpqp.execution.devices import AWSDevice
 
 
+def prepare_bell_pairs(n_pairs: int) -> QCircuit:
+    """
+    Prepare n_pairs of Bell pairs on qubits [0..2*n_pairs-1].
+    Each pair consists of qubits (2*i, 2*i+1).
+    """
+    circuit = QCircuit()
+    for i in range(n_pairs):
+        circuit.add(H(2 * i))
+        circuit.add(CNOT(2 * i, 2 * i + 1))
+    return circuit
+
+
 class AliceEncodeCircuit(QCircuit):
     def __init__(self, bits: str):
+        """
+        Alice encodes 2 classical bits per entangled pair using X and Z gates:
+        For each 2-bit chunk:
+          "00" -> I (do nothing)
+          "01" -> X
+          "10" -> Z
+          "11" -> XZ (or ZX)
+        """
         super().__init__()
-        if bits == "00":
-            pass
-        elif bits == "01":
-            self.add(X(0))
-        elif bits == "10":
-            self.add(Z(0))
-        elif bits == "11":
-            self.add(X(0))
-            self.add(Z(0))
-        else:
-            raise ValueError("Bits must be '00', '01', '10', or '11'")
+        if len(bits) % 2 != 0:
+            raise ValueError("Number of bits must be even")
+
+        n_pairs = len(bits) // 2
+        for i in range(n_pairs):
+            pair_bits = bits[2 * i : 2 * i + 2]
+            target_qubit = (
+                2 * i + 1
+            )  # Alice applies gates on her half (second qubit of each pair)
+
+            if pair_bits == "00":
+                pass  # Identity, no gates
+            elif pair_bits == "01":
+                self.add(X(target_qubit))
+            elif pair_bits == "10":
+                self.add(Z(target_qubit))
+            elif pair_bits == "11":
+                self.add(X(target_qubit))
+                self.add(Z(target_qubit))
+            else:
+                raise ValueError("Bits must be '00', '01', '10', or '11'")
 
 
 class BobDecodeCircuit(QCircuit):
-    def __init__(self):
+    def __init__(self, n_pairs: int):
+        """
+        Bob decodes the bits by applying CNOT and H on each pair.
+        Applies on qubits (2*i, 2*i+1).
+        """
         super().__init__()
-        self.add(CNOT(0, 1))
-        self.add(H(0))
+        for i in range(n_pairs):
+            self.add(CNOT(2 * i, 2 * i + 1))
+            self.add(H(2 * i))
 
 
-class SuperdenseProtocol(QCircuit):
+class SuperdenseProtocol:
     def __init__(self, bits: str, noise=False):
-        super().__init__()
-        self.add(H(0))
-        self.add(CNOT(0, 1))
+        if len(bits) % 2 != 0:
+            raise ValueError(
+                "Number of bits must be even for superdense coding"
+            )
 
-        alice_circuit = AliceEncodeCircuit(bits)
-        for gate in alice_circuit.gates:
-            self.add(gate)
+        self.n_pairs = len(bits) // 2
+        self.bits = bits
+        self.noise = noise
 
-        if noise:
-            # Add depolarizing noise on qubit 0 and qubit 1 after Alice encoding
-            self.add(Depolarizing(0.1, [0]))
-            self.add(Depolarizing(0.1, [1]))
+        # Prepare circuits
+        self.bell_prep = prepare_bell_pairs(self.n_pairs)
+        self.alice = AliceEncodeCircuit(bits)
+        self.bob = BobDecodeCircuit(self.n_pairs)
 
-        bob_circuit = BobDecodeCircuit()
-        for gate in bob_circuit.gates:
-            self.add(gate)
+        # Compose full circuit by concatenation (not literally, we build step by step)
+        self.circuit = QCircuit()
+        # Add bell pair preparation
+        for gate in self.bell_prep.gates:
+            self.circuit.add(gate)
 
-        self.add(BasisMeasure([0, 1], shots=1000))
+        # Alice encoding
+        for gate in self.alice.gates:
+            self.circuit.add(gate)
+
+        # Add noise if requested on *all* qubits after Alice encoding
+        if self.noise:
+            p = 0.1
+            qubits = list(range(2 * self.n_pairs))
+            self.circuit.add(Depolarizing(p, qubits))
+
+        # Bob decoding
+        for gate in self.bob.gates:
+            self.circuit.add(gate)
+
+        # Measurement on all qubits (all pairs)
+        self.circuit.add(
+            BasisMeasure(list(range(2 * self.n_pairs)), shots=1000)
+        )
 
     def run_and_get_results(self, device=AWSDevice.BRAKET_LOCAL_SIMULATOR):
-        result = run(self, device)
+        result = run(self.circuit, device)
         counts = result.counts
         total_counts = sum(counts)
         max_index = counts.index(max(counts))
-        bitstring = format(max_index, f"0{self.measurements[0].nb_qubits}b")
+
+        # Each measurement outcome corresponds to 2*n_pairs bits, bits in measurement correspond to qubits 0..N-1
+        bitstring = format(max_index, f"0{2*self.n_pairs}b")
         probability = counts[max_index] / total_counts
         return {
             "bitstring": bitstring,
@@ -66,24 +123,22 @@ class SuperdenseProtocol(QCircuit):
 
 
 def main():
-    bits = "11"
+    bits = "1101"  # Example 4 bits (2 pairs), you can change to any even length string
 
     print("Running noiseless simulation...")
     protocol = SuperdenseProtocol(bits, noise=False)
     result = protocol.run_and_get_results()
     print(f"Alice sent bits: {bits}")
     print(
-        f"Noiseless output: {result['bitstring']} with probability {result['probability']}"
+        f"Noiseless output: {result['bitstring']} with probability {result['probability']:.3f}"
     )
-    print(f"Counts: {result['counts']}")
-    print()
+    print(f"Counts: {result['counts']}\n")
 
-    # Run with noise
     print("Running noisy simulation with Depolarizing noise...")
     protocol_noisy = SuperdenseProtocol(bits, noise=True)
     result_noisy = protocol_noisy.run_and_get_results()
     print(
-        f"Noisy output: {result_noisy['bitstring']} with probability {result_noisy['probability']}"
+        f"Noisy output: {result_noisy['bitstring']} with probability {result_noisy['probability']:.3f}"
     )
     print(f"Counts: {result_noisy['counts']}")
 
