@@ -4,6 +4,7 @@ from mpqp.measures import BasisMeasure
 from mpqp.execution import run
 from mpqp.execution.devices import AWSDevice
 
+
 # Alice encodes her 2 classical bits using quantum gates
 def alice_encode(bits):
     gates = []
@@ -19,12 +20,12 @@ def alice_encode(bits):
         raise ValueError("Bits must be '00', '01', '10', or '11'")
     return gates
 
+
 # Bob applies decoding gates
 def bob_decode():
     return [CNOT(0, 1), H(0)]
 
-def main():
-    bits = "10"  # Message Alice wants to send
+def run_sde(bits):
     circuit = QCircuit()
 
     # 1. Create entangled Bell pair
@@ -52,6 +53,9 @@ def main():
     print("\nCircuit:")
     print(circuit)
 
+
+def main():
+   run_sde("10") 
+
 if __name__ == "__main__":
     main()
-
